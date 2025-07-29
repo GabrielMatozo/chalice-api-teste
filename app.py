@@ -5,12 +5,16 @@
 API de autenticação com JWT no Chalice.
 """
 
+
 import datetime
-import secrets
-from chalice import Chalice
+import logging
 import boto3
 import bcrypt
 import jwt
+from chalice import Chalice
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 
@@ -24,8 +28,9 @@ dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
 users_table = dynamodb.Table('Users')
 
 
+import secrets
 # Configurações do JWT
-JWT_SECRET = secrets.token_urlsafe(32)  # Chave secreta aleatória gerada a cada execução
+JWT_SECRET = secrets.token_urlsafe(32)  # Gera uma chave aleatória a cada inicialização
 JWT_ALGORITHM = 'HS256'
 JWT_EXP_DELTA_SECONDS = 3600  # 1 hora
 # Função para extrair e validar o token JWT do header Authorization
@@ -47,9 +52,10 @@ def require_jwt_auth(request):
         return None, {'error': 'Token inválido'}, 401
 
 
-# Rota de login de usuário
-@app.route('/login', methods=['POST'])
-def login():
+
+# Rota de login de usuário (signin)
+@app.route('/signin', methods=['POST'])
+def signin():
     """
     Endpoint de login: valida credenciais e retorna JWT se sucesso.
     """
@@ -88,43 +94,52 @@ users_table = dynamodb.Table('Users')
 
 
 
-## Rota de cadastro de usuário (registro)
-@app.route('/register', methods=['POST'])
-def register_user():
+## Rota de cadastro de usuário (signup)
+@app.route('/signup', methods=['POST'])
+def signup():
     """
     Endpoint de registro de usuário para a API de autenticação JWT.
     Recebe username e password, verifica duplicidade, faz hash da senha e salva no DynamoDB.
     """
-    request = app.current_request
-    data = request.json_body
-    username = data.get('username')
-    password = data.get('password')
-    if not username or not password:
-        return {'error': 'username e password são obrigatórios'}, 400
+    try:
+        request = app.current_request
+        data = request.json_body
+        username = data.get('username')
+        password = data.get('password')
+        if not username or not password:
+            return {'error': 'username e password são obrigatórios'}, 400
 
-    # Verifica se usuário já existe no banco
-    response = users_table.get_item(Key={'username': username})
-    if 'Item' in response:
-        return {'error': 'Usuário já existe'}, 409
+        # Verifica se usuário já existe no banco
+        response = users_table.get_item(Key={'username': username})
+        if 'Item' in response:
+            return {'error': 'Usuário já existe'}, 409
 
-    # Gera hash seguro da senha usando bcrypt
-    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        # Gera hash seguro da senha usando bcrypt
+        hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
-    # Salva usuário com senha hasheada no DynamoDB
-    users_table.put_item(Item={
-        'username': username,
-        'password': hashed.decode('utf-8')
-    })
-    return {'message': 'Usuário cadastrado com sucesso'}
+        # Salva usuário com senha hasheada no DynamoDB
+        users_table.put_item(Item={
+            'username': username,
+            'password': hashed.decode('utf-8')
+        })
+        return {'message': 'Usuário cadastrado com sucesso'}
+    except (
+        boto3.exceptions.Boto3Error,
+        boto3.exceptions.S3UploadFailedError,
+        KeyError,
+        ValueError
+    ) as e:
+        logger.exception('Erro ao registrar usuário')
+        return {'error': 'Erro interno', 'detalhe': str(e)}, 500
 
-# Proteger todas as rotas exceto /login e /register
+# Proteger todas as rotas exceto /signin e /signup
 
 @app.middleware('http')
 def jwt_protect_all_routes(event, get_response):
-    """Middleware que protege todas as rotas exceto /login e /register com JWT."""
+    """Middleware que protege todas as rotas exceto /signin e /signup com JWT."""
     path = event.path
-    # Permitir acesso livre apenas para login e registro
-    if path in ['/login', '/register']:
+    # Permitir acesso livre apenas para signin e signup
+    if path in ['/signin', '/signup']:
         return get_response(event)
     # Proteger todas as outras rotas
     auth_header = event.headers.get('authorization')
@@ -138,3 +153,13 @@ def jwt_protect_all_routes(event, get_response):
     except jwt.InvalidTokenError:
         return {'error': 'Token inválido'}, 401
     return get_response(event)
+
+# Rota protegida /profile
+@app.route('/profile', methods=['GET'])
+def profile():
+    """Endpoint protegido que retorna o nome do usuário extraído do JWT."""
+    request = app.current_request
+    payload, error, status = require_jwt_auth(request)
+    if error:
+        return error, status
+    return {'mensagem': f'Olá, {payload["username"]}!'}
