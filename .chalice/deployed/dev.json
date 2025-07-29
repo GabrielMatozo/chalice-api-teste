@@ -1,23 +1,5 @@
 {
-  "resources": [
-    {
-      "name": "default-role",
-      "resource_type": "iam_role",
-      "role_arn": "arn:aws:iam::026443377517:role/chalice-api-teste-dev",
-      "role_name": "chalice-api-teste-dev"
-    },
-    {
-      "name": "api_handler",
-      "resource_type": "lambda_function",
-      "lambda_arn": "arn:aws:lambda:us-east-1:026443377517:function:chalice-api-teste-dev"
-    },
-    {
-      "name": "rest_api",
-      "resource_type": "rest_api",
-      "rest_api_id": "v6pbnowgw9",
-      "rest_api_url": "https://v6pbnowgw9.execute-api.us-east-1.amazonaws.com/api/"
-    }
-  ],
+  "resources": [],
   "schema_version": "2.0",
   "backend": "api"
 }

@@ -4,14 +4,33 @@
   "stages": {
     "dev": {
       "api_gateway_stage": "api",
+      "environment_variables": {
+        "AWS_DEFAULT_REGION": "us-east-1"
+      },
       "iam_policy_statements": [
         {
           "Effect": "Allow",
           "Action": [
             "dynamodb:GetItem",
-            "dynamodb:PutItem"
+            "dynamodb:PutItem",
+            "dynamodb:UpdateItem",
+            "dynamodb:DeleteItem",
+            "dynamodb:Query",
+            "dynamodb:Scan"
           ],
-          "Resource": "arn:aws:dynamodb:*:*:table/Users"
+          "Resource": [
+            "arn:aws:dynamodb:us-east-1:*:table/Users",
+            "arn:aws:dynamodb:us-east-1:*:table/Users/index/*"
+          ]
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "logs:CreateLogGroup",
+            "logs:CreateLogStream",
+            "logs:PutLogEvents"
+          ],
+          "Resource": "arn:aws:logs:*:*:*"
         }
       ]
     }
