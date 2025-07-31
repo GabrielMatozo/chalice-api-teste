@@ -154,9 +154,15 @@ def signin():
             return {"error": "Usuário ou senha inválidos"}, 401
 
         # Valida senha
-        if not bcrypt.checkpw(
-            password.encode("utf-8"), user["password"].encode("utf-8")
-        ):
+        stored_password = user["password"]
+        if isinstance(stored_password, str):
+            stored_password_bytes = stored_password.encode("utf-8")
+        elif isinstance(stored_password, bytes):
+            stored_password_bytes = stored_password
+        else:
+            return {"error": "Senha armazenada em formato inválido"}, 500
+
+        if not bcrypt.checkpw(password.encode("utf-8"), stored_password_bytes):
             return {"error": "Usuário ou senha inválidos"}, 401
 
         # Gera token JWT
